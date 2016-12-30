@@ -63,6 +63,13 @@ class SubscriptionBuilder
     protected $metadata;
 
     /**
+     * The stripe connect account for the subscription.
+     *
+     * @var string|null
+     */
+    protected $connect_account;
+
+    /**
      * Create a new subscription builder instance.
      *
      * @param  mixed  $owner
@@ -163,7 +170,10 @@ class SubscriptionBuilder
     {
         $customer = $this->getStripeCustomer($token, $options);
 
-        $subscription = $customer->subscriptions->create($this->buildPayload());
+        $subscription = $customer->subscriptions->create(
+            $this->buildPayload(),
+            $this->buildOptions()
+        );
 
         if ($this->skipTrial) {
             $trialEndsAt = null;
@@ -217,6 +227,18 @@ class SubscriptionBuilder
             'trial_end' => $this->getTrialEndForPayload(),
             'tax_percent' => $this->getTaxPercentageForPayload(),
             'metadata' => $this->metadata,
+        ]);
+    }
+
+    /**
+     * Build the options payload for subscription creation.
+     *
+     * @return array
+     */
+    protected function buildOptions()
+    {
+        return array_filter([
+            'stripe_account' => env('STRIPE_CONNECT_ACCOUNT'),
         ]);
     }
 

@@ -23,6 +23,7 @@ trait Billable
      * @var string
      */
     protected static $stripeKey;
+    protected static $stripeConnectId;
 
     /**
      * Make a "one off" charge on the customer for the given amount.
@@ -611,4 +612,5 @@ trait Billable
     {
         static::$stripeKey = $key;
     }
+
 }

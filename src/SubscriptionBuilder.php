@@ -42,6 +42,13 @@ class SubscriptionBuilder
     protected $trialDays;
 
     /**
+     * The application fee in percent for the parent stripe account.
+     *
+     * @var int|null
+     */
+    protected $application_fee;
+
+    /**
      * Indicates that the trial should end immediately.
      *
      * @var bool
@@ -77,11 +84,12 @@ class SubscriptionBuilder
      * @param  string  $plan
      * @return void
      */
-    public function __construct($owner, $name, $plan)
+    public function __construct($owner, $name, $plan, $connect_account = NULL)
     {
         $this->name = $name;
         $this->plan = $plan;
         $this->owner = $owner;
+        $this->connect_account = $connect_account;
     }
 
     /**
@@ -106,6 +114,32 @@ class SubscriptionBuilder
     public function trialDays($trialDays)
     {
         $this->trialDays = $trialDays;
+
+        return $this;
+    }
+
+    /**
+     * Specify the application fee percentage.
+     *
+     * @param  int  $trialDays
+     * @return $this
+     */
+    public function applicationFee($percentage)
+    {
+        $this->application_fee = $percentage;
+
+        return $this;
+    }
+
+    /**
+     * Specify a connected account on which to create the subscription.
+     *
+     * @param  string  $id
+     * @return $this
+     */
+    public function connectAccount($id)
+    {
+        $this->connect_account = $id;
 
         return $this;
     }
@@ -227,6 +261,7 @@ class SubscriptionBuilder
             'trial_end' => $this->getTrialEndForPayload(),
             'tax_percent' => $this->getTaxPercentageForPayload(),
             'metadata' => $this->metadata,
+            'application_fee_percent' => $this->application_fee,
         ]);
     }
 
@@ -238,7 +273,7 @@ class SubscriptionBuilder
     protected function buildOptions()
     {
         return array_filter([
-            'stripe_account' => env('STRIPE_CONNECT_ACCOUNT'),
+            'stripe_account' => $this->connect_account,
         ]);
     }
 

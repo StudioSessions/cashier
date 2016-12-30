@@ -23,7 +23,7 @@ trait Billable
      * @var string
      */
     protected static $stripeKey;
-    protected static $stripeConnectId;
+    protected static $stripeConnectAccount;
 
     /**
      * Make a "one off" charge on the customer for the given amount.
@@ -50,7 +50,7 @@ trait Billable
             throw new InvalidArgumentException('No payment source provided.');
         }
 
-        return StripeCharge::create($options, ['api_key' => $this->getStripeKey()]);
+        return StripeCharge::create($options, $this->getExtraOptionsPayload());
     }
 
     /**
@@ -66,7 +66,7 @@ trait Billable
     {
         $options['charge'] = $charge;
 
-        return StripeRefund::create($options, ['api_key' => $this->getStripeKey()]);
+        return StripeRefund::create($options, $this->getExtraOptionsPayload());
     }
 
     /**
@@ -103,7 +103,7 @@ trait Billable
         ], $options);
 
         return StripeInvoiceItem::create(
-            $options, ['api_key' => $this->getStripeKey()]
+            $options, $this->getExtraOptionsPayload()
         );
     }
 
@@ -133,7 +133,12 @@ trait Billable
      */
     public function newSubscription($subscription, $plan)
     {
-        return new SubscriptionBuilder($this, $subscription, $plan);
+        return new SubscriptionBuilder(
+            $this,
+            $subscription,
+            $plan,
+            $this->getConnectAccount()
+        );
     }
 
     /**
@@ -227,7 +232,7 @@ trait Billable
     {
         if ($this->stripe_id) {
             try {
-                return StripeInvoice::create(['customer' => $this->stripe_id], $this->getStripeKey())->pay();
+                return StripeInvoice::create(['customer' => $this->stripe_id], $this->getExtraOptionsPayload())->pay();
             } catch (StripeErrorInvalidRequest $e) {
                 return false;
             }
@@ -245,7 +250,7 @@ trait Billable
     {
         try {
             $stripeInvoice = StripeInvoice::upcoming(
-                ['customer' => $this->stripe_id], ['api_key' => $this->getStripeKey()]
+                ['customer' => $this->stripe_id], $this->getExtraOptionsPayload()
             );
 
             return new Invoice($this, $stripeInvoice);
@@ -263,7 +268,7 @@ trait Billable
     public function findInvoice($id)
     {
         try {
-            return new Invoice($this, StripeInvoice::retrieve($id, $this->getStripeKey()));
+            return new Invoice($this, StripeInvoice::retrieve($id, $this->getExtraOptionsPayload()));
         } catch (Exception $e) {
             //
         }
@@ -374,7 +379,7 @@ trait Billable
     {
         $customer = $this->asStripeCustomer();
 
-        $token = StripeToken::retrieve($token, ['api_key' => $this->getStripeKey()]);
+        $token = StripeToken::retrieve($token, $this->getExtraOptionsPayload());
 
         // If the given token already has the card as their default source, we can just
         // bail out of the method now. We don't need to keep adding the same card to
@@ -537,7 +542,8 @@ trait Billable
         // user from Stripe. This ID will correspond with the Stripe user instances
         // and allow us to retrieve users from Stripe later when we need to work.
         $customer = StripeCustomer::create(
-            $options, $this->getStripeKey()
+            $options,
+            $this->getExtraOptionsPayload()
         );
 
         $this->stripe_id = $customer->id;
@@ -561,7 +567,7 @@ trait Billable
      */
     public function asStripeCustomer()
     {
-        return StripeCustomer::retrieve($this->stripe_id, $this->getStripeKey());
+        return StripeCustomer::retrieve($this->stripe_id, $this->getExtraOptionsPayload());
     }
 
     /**
@@ -611,6 +617,42 @@ trait Billable
     public static function setStripeKey($key)
     {
         static::$stripeKey = $key;
+    }
+
+    /**
+     * Get the Connect account to act on behalf of.
+     *
+     * @return string
+     */
+    public static function getConnectAccount()
+    {
+        if (static::$stripeConnectAccount) {
+            return static::$stripeConnectAccount;
+        }
+    }
+
+    /**
+     * Set the Stripe Connect account Id.
+     *
+     * @param  string  $id
+     * @return void
+     */
+    public static function stripeConnectAccount($id)
+    {
+        static::$stripeConnectAccount = $id;
+    }
+
+    /**
+     * Get the extra (connect) options for stripe requests.
+     *
+     * @return array
+     */
+    private function getExtraOptionsPayload()
+    {
+        return array_filter([
+            'api_key' => $this->getStripeKey(),
+            'stripe_account' => $this->getConnectAccount(),
+        ]);
     }
 
 }
